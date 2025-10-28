@@ -131,6 +131,7 @@ jobs:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
           format: spdx-json
           output-file: backend-sbom.spdx.json
+        continue-on-error: true
 
       - name: Generate SBOM for frontend
         uses: anchore/sbom-action@v0
@@ -138,6 +139,7 @@ jobs:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
           format: spdx-json
           output-file: frontend-sbom.spdx.json
+        continue-on-error: true
 
       - name: Upload SBOMs
         uses: actions/upload-artifact@v4

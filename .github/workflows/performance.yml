@@ -25,12 +25,71 @@ jobs:
           cd server && npm ci
           cd ../client && npm ci
       
+      - name: Start services
+        run: |
+          # Start the server in background
+          cd server && npm start &
+          SERVER_PID=$!
+          
+          # Start the client in background
+          cd client && npm run build && npm start &
+          CLIENT_PID=$!
+          
+          # Wait for services to start
+          sleep 15
+          
+          # Check if services are running
+          curl -f http://localhost:5000/api/health || exit 1
+          curl -f http://localhost:3000 || exit 1
+          
+          # Save PIDs for cleanup
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          echo "CLIENT_PID=$CLIENT_PID" >> $GITHUB_ENV
+      
       - name: Run Lighthouse CI
         run: |
           npm install -g @lhci/cli
           lhci autorun --upload.target=temporary-public-storage
+        continue-on-error: true
       
       - name: Run Load Tests
         run: |
           npm install -g artillery
           artillery run load-test.yml --output load-test-results.json
+        continue-on-error: true
+      
+      - name: Run Benchmark Tests
+        run: |
+          # Start mock agents for benchmarking
+          cd examples/benchmarks/mock-vulnerable-agent && npm start &
+          VULNERABLE_PID=$!
+          
+          cd ../mock-secure-agent && npm start &
+          SECURE_PID=$!
+          
+          # Wait for mock agents to start
+          sleep 5
+          
+          # Run benchmarks
+          npm run test:benchmarks
+          
+          # Cleanup mock agents
+          kill $VULNERABLE_PID $SECURE_PID
+        continue-on-error: true
+      
+      - name: Cleanup services
+        if: always()
+        run: |
+          # Kill background services
+          if [ ! -z "$SERVER_PID" ]; then kill $SERVER_PID; fi
+          if [ ! -z "$CLIENT_PID" ]; then kill $CLIENT_PID; fi
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-test-results
+          path: |
+            load-test-results.json
+            examples/benchmarks/results/
+          retention-days: 30

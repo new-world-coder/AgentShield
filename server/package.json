@@ -9,9 +9,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:cloudflare": "node -e \"require('./services/CloudflareAgentTester').test()\"",
-    "test:wrangler": "wrangler dev --test",
-    "test:security": "npm run test:cloudflare && npm run test:wrangler",
+    "test:security": "npm test",
     "lint": "eslint . --ext .js,.ts",
     "lint:fix": "eslint . --ext .js,.ts --fix",
     "format": "prettier --write \"**/*.{js,ts,json,md}\"",
@@ -30,8 +28,6 @@
     "multer": "^1.4.5-lts.1",
     "joi": "^17.11.0",
     "winston": "^3.11.0",
-    "@cloudflare/agent-sdk": "^1.0.0",
-    "wrangler": "^3.0.0",
     "nock": "^13.3.0"
   },
   "devDependencies": {

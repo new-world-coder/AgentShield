@@ -1,0 +1,107 @@
+config:
+  target: 'http://localhost:5000'
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm up"
+    - duration: 60
+      arrivalRate: 10
+      name: "Ramp up load"
+    - duration: 120
+      arrivalRate: 15
+      name: "Sustained load"
+    - duration: 30
+      arrivalRate: 5
+      name: "Ramp down"
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+
+scenarios:
+  - name: "API Health Check"
+    weight: 20
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+
+  - name: "Authentication Flow"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/auth/register"
+          json:
+            username: "loadtest-{{ $randomString() }}"
+            email: "loadtest-{{ $randomString() }}@example.com"
+            password: "loadtest123"
+          expect:
+            - statusCode: [200, 400] # 400 if user already exists
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "loadtest-{{ $randomString() }}@example.com"
+            password: "loadtest123"
+          expect:
+            - statusCode: [200, 401]
+
+  - name: "Test Execution"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "test@example.com"
+            password: "test123"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      - post:
+          url: "/api/agents/run"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          json:
+            name: "load-test-agent"
+            adapter: "http"
+            config:
+              url: "http://localhost:6001/respond"
+              method: "POST"
+              headers:
+                Content-Type: "application/json"
+              timeoutMs: 10000
+            tests: ["prompt-injection", "input-validation"]
+            runOptions:
+              parallel: true
+              timeout: 30000
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.executionId"
+              as: "executionId"
+      - get:
+          url: "/api/agents/results/{{ executionId }}"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Results Retrieval"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "test@example.com"
+            password: "test123"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      - get:
+          url: "/api/results"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200

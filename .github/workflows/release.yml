@@ -254,7 +254,7 @@ jobs:
     steps:
       - name: Notify Slack
         uses: 8398a7/action-slack@v3
-        if: always()
+        if: always() && secrets.SLACK_WEBHOOK != ''
         with:
           status: ${{ job.status }}
           channel: '#releases'
@@ -268,3 +268,4 @@ jobs:
             Docker Images:
             - Backend: `ghcr.io/${{ github.repository }}-backend:${{ github.ref_name }}`
             - Frontend: `ghcr.io/${{ github.repository }}-frontend:${{ github.ref_name }}`
+        continue-on-error: true

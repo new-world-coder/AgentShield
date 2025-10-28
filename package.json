@@ -25,12 +25,21 @@
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f"
   },
-  "keywords": ["ai", "security", "testing", "agentic", "vulnerability"],
+  "keywords": [
+    "ai",
+    "security",
+    "testing",
+    "agentic",
+    "vulnerability"
+  ],
   "author": "AgentShield Team",
   "license": "MIT",
   "devDependencies": {
-    "concurrently": "^8.2.2",
     "axios": "^1.6.2",
+    "concurrently": "^8.2.2",
     "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
   }
 }
