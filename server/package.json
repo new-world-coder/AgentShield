@@ -7,6 +7,7 @@
     "dev": "nodemon index.js",
     "start": "node index.js",
     "test": "jest",
+    "test:assure": "jest --config jest.assure.config.js --forceExit",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:cloudflare": "node -e \"require('./services/CloudflareAgentTester').test()\"",
@@ -30,7 +31,6 @@
     "multer": "^1.4.5-lts.1",
     "joi": "^17.11.0",
     "winston": "^3.11.0",
-    "@cloudflare/agent-sdk": "^1.0.0",
     "wrangler": "^3.0.0",
     "nock": "^13.3.0"
   },

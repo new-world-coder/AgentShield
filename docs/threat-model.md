@@ -1,247 +1,172 @@
 # AgentShield Threat Model
 
+**Version:** 2.0  
+**Last Updated:** 2026-08-11  
+**Next Review:** 2026-11-11  
+**Maps to:** OWASP LLM Top 10 · OWASP Agentic / ASI Top 10 · MCP Top 10  
+**Related:** [STRATEGY.md](./STRATEGY.md)
+
 ## Purpose & Scope
 
-AgentShield is designed to identify and test vulnerabilities in agentic AI systems. This threat model covers the security landscape for AI agents used in:
+AgentShield identifies, tests, and (increasingly) **enforces** security controls for agentic AI systems. This threat model covers:
 
-- **Conversational AI Pipelines**: Chatbots, virtual assistants, customer service agents
-- **Voice Agents**: Speech-to-text AI systems with natural language processing
-- **Multi-step Agents**: Complex workflows involving multiple AI models and external tools
-- **Autonomous Systems**: Self-executing agents with decision-making capabilities
-- **Tool-Integrated Agents**: AI systems with access to external APIs, databases, and file systems
+- Conversational and multi-step agents  
+- Tool-integrated agents and **MCP hosts/servers**  
+- Multi-agent orchestration  
+- RAG / memory-backed agents  
+- Runtime policy enforcement paths (Enforce layer)
+
+**Hero asset:** the agent **execution graph** — prompts → memory → tools/MCP → side effects → other agents.
 
 ## Assets
 
-### Primary Assets
-- **System Prompts**: Core instructions that define agent behavior and constraints
-- **User Messages**: Input data from end users and external systems
-- **Long-term Memory**: Persistent storage of conversations, user preferences, and context
-- **Model Outputs**: Generated responses, recommendations, and decisions
-- **Agent State**: Internal variables, session data, and execution context
+### Primary
+- System prompts and policy packs  
+- User / tool / RAG inputs (untrusted by default)  
+- Long-term memory and session state  
+- Model outputs and tool call plans  
+- **MCP tool metadata** (name, description, input schema) — integrity-critical  
 
-### External Assets
-- **API Keys & Credentials**: Authentication tokens for external services
-- **Database Connections**: Access to user data, configurations, and logs
-- **File System Access**: Read/write permissions for documents and configurations
-- **Network Resources**: External API endpoints and web services
-- **Tool Integrations**: Third-party services and command-line tools
+### External
+- API keys, OAuth tokens (confused-deputy risk)  
+- Databases, filesystems, browsers, shells  
+- Third-party MCP servers and model providers  
+- CI artifacts (SARIF, AgentBOM) and signed pack registries  
 
 ## Attacker Capabilities
 
-### Input Sources
-- **Untrusted User Prompts**: Malicious input from end users or external systems
-- **Model Poisoning**: Corrupted training data or adversarial inputs
-- **Malicious Tools**: Compromised external services or command-line tools
-- **Man-in-the-Middle**: Network interception of agent communications
-- **Compromised API Keys**: Stolen credentials for external service access
+- Untrusted user prompts and multi-turn persuasion  
+- Indirect injection via RAG, tickets, email, web, **tool results**  
+- Malicious or compromised MCP servers (poisoned descriptions, rug pulls)  
+- Typosquat / shadow tools on the same host  
+- Stolen or over-scoped OAuth / API credentials  
+- Parallel tool races and TOCTOU on schema after policy check  
+- Compromised judge / evaluation models (when semantic judges are used)
 
-### Attack Vectors
-- **Prompt Injection**: Direct manipulation of agent instructions
-- **Role Confusion**: Attempts to change agent identity or permissions
-- **Chain-of-Thought Leakage**: Extraction of internal reasoning processes
-- **Tool Misuse**: Unauthorized execution of external commands or API calls
-- **Data Exfiltration**: Unauthorized access to sensitive information
-- **Privilege Escalation**: Gaining higher-level access than intended
+## Taxonomy Mapping
 
-## Threat Vectors & Impact Assessment
+### OWASP LLM Top 10
 
-### 1. Prompt Injection
-- **Description**: Injecting malicious instructions to override system behavior
-- **Impact**: 9/10 (Critical) - Complete agent compromise
-- **Likelihood**: 8/10 (High) - Easy to execute, hard to detect
-- **Severity**: **Critical**
+| ID | Threat | Impact | Likelihood | Severity | AgentShield coverage |
+|----|--------|--------|------------|----------|----------------------|
+| LLM01 | Prompt Injection | 9 | 9 | Critical | Oracles + mutational packs |
+| LLM02 | Sensitive Information Disclosure | 9 | 7 | Critical | Egress/secret oracles |
+| LLM03 | Supply Chain | 8 | 6 | High | MCP pin/scan; AgentBOM (Phase 1+) |
+| LLM04 | Data and Model Poisoning | 8 | 5 | High | RAG/memory packs (Phase 3) |
+| LLM05 | Improper Output Handling | 7 | 7 | High | Output oracles + DLP hooks |
+| LLM06 | Excessive Agency | 9 | 7 | Critical | Tool allowlist / MCP firewall |
+| LLM07 | System Prompt Leakage | 8 | 7 | Critical | Extraction probes + oracles |
+| LLM08 | Vector / Embedding Weaknesses | 7 | 5 | High | RAG packs (Phase 3) |
+| LLM09 | Misinformation | 6 | 8 | High | Semantic judge (optional) |
+| LLM10 | Unbounded Consumption | 6 | 6 | Medium | Rate / cost oracles |
 
-### 2. System Prompt Extraction
-- **Description**: Revealing internal instructions and constraints
-- **Impact**: 8/10 (Critical) - Exposes security controls
-- **Likelihood**: 7/10 (High) - Common in poorly designed agents
-- **Severity**: **Critical**
+### OWASP Agentic / ASI Top 10
 
-### 3. Role Confusion
-- **Description**: Manipulating agent to assume unauthorized roles
-- **Impact**: 7/10 (High) - Unauthorized access to functions
-- **Likelihood**: 6/10 (Medium) - Requires specific techniques
-- **Severity**: **High**
+| ID | Threat | Severity | Notes |
+|----|--------|----------|-------|
+| ASI01 | Agent Goal Hijack | Critical | Overrides objectives via injection / persuasion |
+| ASI02 | Tool Misuse | Critical | Forbidden tool fired — **action oracle primary signal** |
+| ASI03 | Identity / Role Spoofing | High | Role confusion, fake admin personas |
+| ASI04 | Memory Poisoning | High | Persistent malicious context |
+| ASI05 | Cascading Hallucinations | High | Multi-agent error amplification |
+| ASI06 | Unexpected Code Execution | Critical | Shell/interpreter tools |
+| ASI07 | Agent Communication Poisoning | High | Inter-agent message injection |
+| ASI08 | Rogue Agents | Critical | Compromised peer in swarm |
+| ASI09 | Human–Agent Trust Exploitation | High | Approval fatigue / social engineering |
+| ASI10 | Resource Overwhelm | Medium | Parallel tool storms, cost bombs |
 
-### 4. Data Exfiltration
-- **Description**: Unauthorized extraction of sensitive information
-- **Impact**: 8/10 (Critical) - Privacy breach, data loss
-- **Likelihood**: 6/10 (Medium) - Depends on data exposure
-- **Severity**: **Critical**
+### MCP Top 10
 
-### 5. Tool Abuse
-- **Description**: Unauthorized execution of external commands or API calls
-- **Impact**: 7/10 (High) - System compromise, resource abuse
-- **Likelihood**: 5/10 (Medium) - Requires tool access
-- **Severity**: **High**
+| ID | Threat | Severity | Phase 1 control |
+|----|--------|----------|-----------------|
+| MCP01 | Tool Description Poisoning | Critical | `mcp.scan` description heuristics |
+| MCP02 | Schema Rug Pull / Mutation | Critical | `mcp.pin` hash of name+description+schema |
+| MCP03 | Shadow Tools | High | Duplicate/near-name detection |
+| MCP04 | Unsigned / Untrusted Servers | High | Trust allowlist primitive |
+| MCP05 | Confused Deputy (OAuth/MCP tokens) | Critical | Scope + allowlist (Phase 1+) |
+| MCP06 | Excessive Tool Permissions | High | Least-privilege allowlist |
+| MCP07 | Indirect Injection via Tool Results | Critical | Treat tool results as untrusted (IFC Phase 2) |
+| MCP08 | Typosquat MCP Servers/Tools | High | Distance / lookalike scan |
+| MCP09 | Open / Unauthenticated Endpoints | High | Endpoint posture checks |
+| MCP10 | Cross-Server Data Exfiltration | Critical | Egress oracles + policy |
 
-### 6. Jailbreaking
-- **Description**: Bypassing safety constraints and content filters
-- **Impact**: 6/10 (High) - Inappropriate content generation
-- **Likelihood**: 7/10 (High) - Well-documented techniques
-- **Severity**: **High**
+## Impact-Based Severity (not pattern echo)
 
-### 7. Context Window Manipulation
-- **Description**: Exploiting memory limitations to hide malicious content
-- **Impact**: 5/10 (Medium) - Information hiding, evasion
-- **Likelihood**: 4/10 (Low) - Requires specific knowledge
-- **Severity**: **Medium**
+Severity is derived from **what would happen if the agent complied**, not whether the response text echoed the attack string.
 
-### 8. Model Hallucination Exploitation
-- **Description**: Leveraging AI hallucinations for misinformation
-- **Impact**: 6/10 (High) - Reputation damage, false information
-- **Likelihood**: 8/10 (High) - Inherent to AI models
-- **Severity**: **High**
+| Impact class | Examples | Default severity |
+|--------------|----------|------------------|
+| Irreversible side effect | `rm`, money move, email send, `git push` to main | Critical |
+| Secret egress | API keys, PII, system prompt dump | Critical |
+| Privilege change | Role elevation, new tool grants | High |
+| Policy bypass without side effect | Jailbreak text only | High → Medium if no tool fire |
+| Resource abuse | Unbounded calls, huge context | Medium |
+| Hygiene / info | Weak validation, noisy logs | Low |
+
+**Scoring formula (Assure):**
+
+```text
+finding_score = impact_weight × confidence
+suite_score   = min(100, Σ finding_score normalized by suite budget)
+```
+
+Regex/text matches contribute **confidence ≤ 0.4**. Action oracles (forbidden tool fired, secret in egress, schema hash drift) contribute **confidence ≥ 0.9**.
 
 ## Mitigation Controls
 
-### Technical Controls
+### Assure (shift-left)
+- Versioned mutational payload packs tagged LLM/ASI/MCP  
+- Deterministic action oracles; optional semantic judge  
+- SARIF export for CI gates  
+- Continuous regression on pinned MCP schemas  
 
-#### Input Sanitization
-- **Regex Filtering**: Remove or escape malicious patterns
-- **Input Validation**: Validate all user inputs against schemas
-- **Length Limits**: Enforce maximum input sizes
-- **Character Encoding**: Normalize and validate character sets
-- **AgentShield Tests**: `input-validation`, `prompt-injection`, `malicious-patterns`
+### Enforce (runtime — Phase 1/2)
+- MCP schema pin + reject-on-drift  
+- Tool allowlist / require-approval  
+- Fail-closed production policy  
+- IFC labels on untrusted tool/RAG content (Phase 2)  
 
-#### Output Filtering
-- **Content Filtering**: Remove sensitive information from responses
-- **Response Validation**: Validate outputs against expected formats
-- **Token Redaction**: Automatically redact API keys and secrets
-- **AgentShield Tests**: `data-exfiltration`, `output-sanitization`, `secret-leakage`
+### Govern
+- Telemetry + replay of tool graphs  
+- Drift alerts on pack/schema versions  
+- Compliance mapping to LLM / ASI / MCP taxonomies  
 
-#### Access Control
-- **Role-Based Access**: Implement strict role definitions
-- **Permission Validation**: Verify permissions before tool execution
-- **API Key Management**: Secure storage and rotation of credentials
-- **AgentShield Tests**: `role-confusion`, `privilege-escalation`, `unauthorized-access`
+## AgentShield Test → Taxonomy Map
 
-#### System Prompt Protection
-- **Server-Side Prompts**: Keep system instructions on the server
-- **Prompt Isolation**: Separate system and user contexts
-- **Instruction Validation**: Validate system prompt integrity
-- **AgentShield Tests**: `system-prompt-extraction`, `prompt-isolation`
+| Test / control | LLM | ASI | MCP |
+|----------------|-----|-----|-----|
+| `prompt-injection` packs | LLM01 | ASI01 | — |
+| `system-prompt-extraction` | LLM07 | — | — |
+| `data-exfiltration` + egress oracle | LLM02 | — | MCP10 |
+| `tool-abuse` + tool-fire oracle | LLM06 | ASI02/06 | MCP06 |
+| `role-confusion` | — | ASI03 | — |
+| `jailbreaking` | LLM01 | ASI01 | — |
+| MCP pin/scan | LLM03 | — | MCP01–04,08 |
+| Memory/RAG packs (Phase 3) | LLM04/08 | ASI04 | MCP07 |
 
-#### Tool Security
-- **Command Validation**: Validate all external commands
-- **API Rate Limiting**: Prevent abuse of external services
-- **Sandboxing**: Isolate tool execution environments
-- **AgentShield Tests**: `tool-abuse`, `command-injection`, `api-abuse`
+## Remediation Priority
 
-### Testing Strategies
+| Priority | Focus |
+|----------|--------|
+| **P0** | MCP pin + description poisoning scan; secret egress; forbidden tool fire |
+| **P1** | Goal hijack / injection packs; allowlist; system prompt protection |
+| **P2** | Memory/RAG; multi-agent; cost/unbounded consumption |
+| **P3** | Output hygiene; monitoring polish |
 
-#### Automated Testing
-- **Continuous Testing**: Run security tests in CI/CD pipelines
-- **Regression Testing**: Verify fixes don't introduce new vulnerabilities
-- **Performance Testing**: Ensure security controls don't impact performance
-- **AgentShield Tests**: All vulnerability tests run automatically
+## Compliance Anchors
 
-#### Manual Testing
-- **Penetration Testing**: Human-driven security assessment
-- **Code Review**: Manual inspection of agent implementations
-- **Red Team Exercises**: Simulated attack scenarios
-- **AgentShield Tests**: Manual verification of automated findings
+- OWASP LLM Top 10, OWASP Agentic / ASI Top 10, MCP Top 10  
+- NIST AI RMF, ISO/IEC 23053  
+- GDPR / CCPA / HIPAA / SOC 2 / EU AI Act (Govern packs — later)
 
-## Risk Scoring Matrix
+## Review Cadence
 
-| Severity | Score Range | Impact Threshold | Likelihood Threshold |
-|----------|-------------|-----------------|---------------------|
-| **Critical** | 70-100 | 8-10 | 6-10 |
-| **High** | 50-69 | 6-7 | 5-8 |
-| **Medium** | 25-49 | 4-5 | 3-6 |
-| **Low** | 0-24 | 1-3 | 1-4 |
+Threat models stale quickly in agent security. Review at least quarterly, or when:
 
-### Scoring Formula
-```
-Risk Score = (Impact × 0.6) + (Likelihood × 0.4) × 10
-```
-
-## AgentShield Test Mapping
-
-### Critical Tests (Score: 30 points each)
-- `system-prompt-extraction`: Detect system prompt leakage
-- `data-exfiltration`: Identify sensitive data exposure
-- `prompt-injection`: Test for instruction override
-
-### High Tests (Score: 15 points each)
-- `role-confusion`: Detect unauthorized role changes
-- `tool-abuse`: Test for unauthorized tool usage
-- `jailbreaking`: Test for safety constraint bypass
-
-### Medium Tests (Score: 7 points each)
-- `context-manipulation`: Test for memory exploitation
-- `api-abuse`: Test for external service abuse
-- `privilege-escalation`: Test for permission escalation
-
-### Low Tests (Score: 3 points each)
-- `input-validation`: Test basic input sanitization
-- `output-sanitization`: Test response filtering
-- `performance-impact`: Test security control overhead
-
-## Remediation Priority Matrix
-
-### P0 (Immediate - Critical)
-- System prompt protection
-- Data exfiltration prevention
-- Prompt injection mitigation
-
-### P1 (High Priority - High)
-- Role confusion prevention
-- Tool access control
-- Jailbreaking mitigation
-
-### P2 (Medium Priority - Medium)
-- Context manipulation prevention
-- API abuse protection
-- Performance optimization
-
-### P3 (Low Priority - Low)
-- Input validation enhancement
-- Output filtering improvement
-- Monitoring and logging
-
-## Implementation Guidelines
-
-### Development Phase
-1. **Threat Assessment**: Evaluate agent design against threat model
-2. **Security Requirements**: Define security controls and test requirements
-3. **Architecture Review**: Ensure security controls are properly integrated
-4. **AgentShield Integration**: Include security testing in development workflow
-
-### Testing Phase
-1. **Automated Testing**: Run AgentShield tests in CI/CD pipeline
-2. **Manual Testing**: Conduct security review and penetration testing
-3. **Performance Testing**: Verify security controls don't impact performance
-4. **Regression Testing**: Ensure fixes don't introduce new vulnerabilities
-
-### Deployment Phase
-1. **Security Validation**: Verify all security controls are active
-2. **Monitoring Setup**: Implement security monitoring and alerting
-3. **Incident Response**: Prepare response procedures for security incidents
-4. **Continuous Monitoring**: Ongoing security assessment and testing
-
-## Compliance & Standards
-
-### Security Standards
-- **OWASP AI Security Guidelines**: Follow OWASP recommendations for AI security
-- **NIST AI Risk Management**: Implement NIST AI risk management framework
-- **ISO/IEC 23053**: Follow ISO standards for AI risk management
-- **AgentShield Compliance**: Use AgentShield for continuous security validation
-
-### Regulatory Requirements
-- **GDPR**: Ensure data protection compliance for EU users
-- **CCPA**: Comply with California privacy regulations
-- **HIPAA**: Meet healthcare data protection requirements (if applicable)
-- **SOC 2**: Implement security controls for service organizations
-
-## Conclusion
-
-This threat model provides a comprehensive framework for understanding and mitigating security risks in agentic AI systems. AgentShield implements automated testing for all identified threat vectors, providing continuous security validation and remediation guidance.
-
-Regular updates to this threat model are essential as new attack vectors emerge and AI technology evolves. AgentShield's extensible testing framework allows for rapid adaptation to new threats and security requirements.
+- New MCP capability classes ship  
+- A production incident involves tool/MCP misuse  
+- OWASP publishes taxonomy revisions  
 
 ---
 
-*Last Updated: September 2024*
-*Version: 1.0*
-*Next Review: December 2024*
+*Replaces Threat Model v1.0 (2024). See STRATEGY.md for product phasing.*

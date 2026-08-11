@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentshield"
+version = "0.1.0"
+description = "AgentShield Python SDK — MCP firewall primitives, Assure oracles, SARIF"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "AgentShield Team" }]
+keywords = ["ai", "security", "mcp", "agents", "sarif"]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+agentshield = "agentshield.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agentshield*"]
+
+[tool.setuptools.package-data]
+agentshield = ["packs/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

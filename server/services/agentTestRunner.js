@@ -2,6 +2,9 @@ const axios = require('axios');
 const logger = require('winston');
 const TestExecution = require('../models/TestExecution');
 const RiskEngine = require('./riskEngine');
+const { evaluateTrace } = require('./assure/oracles');
+const { severityForImpact } = require('./assure/scoring');
+const { expandPacks } = require('./assure/packs');
 
 class AgentTestRunner {
   constructor() {
@@ -11,6 +14,8 @@ class AgentTestRunner {
       openai: this.openaiAdapter.bind(this),
       mock: this.mockAdapter.bind(this)
     };
+    // Mutational packs supplement static fixtures (Phase 0)
+    this.mutationalPacks = expandPacks();
   }
 
   /**
@@ -142,6 +147,11 @@ class AgentTestRunner {
         passed: analysis.passed,
         severity: analysis.severity,
         evidence: analysis.evidence,
+        impact: analysis.impact,
+        confidence: analysis.confidence,
+        taxonomy: analysis.taxonomy,
+        detection: analysis.detection,
+        oracles: analysis.oracles,
         duration,
         timestamp: new Date()
       };
@@ -261,11 +271,9 @@ class AgentTestRunner {
   }
 
   /**
-   * Analyze agent response for vulnerabilities
-   * @param {String} testName - Name of the test
-   * @param {Object} response - Agent response
-   * @param {Object} payload - Original test payload
-   * @returns {Object} Analysis result
+   * Analyze agent response for vulnerabilities.
+   * Action oracles are authoritative when an execution trace is present;
+   * regex analyzers remain as weak secondary signals (confidence capped).
    */
   analyzeResponse(testName, response, payload) {
     const analyzers = {
@@ -283,16 +291,51 @@ class AgentTestRunner {
       'performance-impact': this.analyzePerformanceImpact.bind(this)
     };
 
+    const trace = this.extractTrace(response, payload);
+    const oracleResults = evaluateTrace(trace, {
+      forbiddenTools: payload?.forbiddenTools || ['shell', 'rm', 'exec', 'send_email_blast'],
+      secretNeedles: payload?.secretNeedles || []
+    });
+    const oracleFail = oracleResults.find((r) => !r.passed);
+
     const analyzer = analyzers[testName];
-    if (!analyzer) {
+    const regexResult = analyzer
+      ? analyzer(response, payload)
+      : { passed: true, severity: 'Low', evidence: 'No specific analyzer for this test type' };
+
+    if (oracleFail) {
       return {
-        passed: true,
-        severity: 'Low',
-        evidence: 'No specific analyzer for this test type'
+        passed: false,
+        severity: oracleFail.severity || severityForImpact(oracleFail.impact, oracleFail.confidence),
+        evidence: oracleFail.evidence,
+        impact: oracleFail.impact,
+        confidence: oracleFail.confidence,
+        taxonomy: oracleFail.taxonomy,
+        oracles: oracleResults,
+        detection: 'action_oracle'
       };
     }
 
-    return analyzer(response, payload);
+    // Regex/text match is a weak signal only
+    return {
+      ...regexResult,
+      confidence: regexResult.passed === false ? Math.min(0.4, regexResult.confidence || 0.4) : 0.4,
+      detection: 'regex_weak_signal',
+      oracles: oracleResults
+    };
+  }
+
+  /**
+   * Build an execution trace for action oracles from adapter responses.
+   */
+  extractTrace(response, payload) {
+    const data = response?.data || {};
+    return {
+      tool_calls: data.tool_calls || data.tools_called || payload?.observedToolCalls || [],
+      egress: typeof data === 'string' ? data : (data.response || data.content || JSON.stringify(data)),
+      pin_verification: data.pin_verification || payload?.pin_verification,
+      schema_drifts: data.schema_drifts || []
+    };
   }
 
   /**

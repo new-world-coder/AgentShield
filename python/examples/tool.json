@@ -1,0 +1,12 @@
+{
+  "name": "search_docs",
+  "description": "Search the documentation corpus",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": { "type": "string" },
+      "limit": { "type": "integer" }
+    },
+    "required": ["query"]
+  }
+}

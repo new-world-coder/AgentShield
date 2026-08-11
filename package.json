@@ -10,6 +10,8 @@
     "build": "cd client && npm run build",
     "start": "cd server && npm start",
     "test": "cd server && npm test && cd ../client && npm test",
+    "test:python": "cd python && pip install -e \".[dev]\" -q && pytest -q",
+    "test:assure": "cd server && npm run test:assure",
     "test:integration": "node tests/integration-tests.js",
     "test:post-deploy": "node tests/post-deployment-tests.js",
     "test:agentic": "cd server && npm test -- --testPathPattern=agenticWorkflow",
