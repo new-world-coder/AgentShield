@@ -332,3 +332,52 @@ curl -X POST http://localhost:5000/api/tests/123/execute \
 curl -X GET "http://localhost:5000/api/results?page=1&limit=10" \
   -H "Authorization: Bearer <token>"
 ```
+
+## MCP Security API (Phase 1)
+
+All `/api/mcp/*` routes require JWT (`Authorization: Bearer <token>`). Secrets in `env` / token fields are redacted in responses.
+
+### POST /api/mcp/audit
+
+Run scan + optional pin verify + policy allowlist.
+
+```json
+{
+  "tools": { "tools": [{ "name": "search_docs", "description": "...", "inputSchema": {} }] },
+  "policy": {
+    "fail_closed": true,
+    "allowed_tools": ["search_docs"],
+    "approval_required": ["write_file"],
+    "blocked_patterns": []
+  },
+  "server_id": "default",
+  "verify_pins": true,
+  "include_unpinned": true,
+  "include_sarif": false,
+  "prefer_python": true
+}
+```
+
+**Response:** scored findings, `firewall_decisions`, `drift_findings`, `scan_findings`, optional `sarif`, and `agentbom`.
+
+### POST /api/mcp/pin
+
+Persist pins for the authenticated user (in-memory store for Phase 1).
+
+### POST /api/mcp/verify
+
+Compare live tools to stored pins; returns `schema_drift` findings on rug pulls.
+
+### GET /api/mcp/pins
+
+List stored pins (`?server_id=` optional filter).
+
+### POST /api/mcp/sarif
+
+Same inputs as audit; returns SARIF 2.1.0 only.
+
+### POST /api/mcp/bom
+
+Build or return AgentBOM from an audit report body.
+
+See also: [`docs/MCP_SECURITY.md`](MCP_SECURITY.md).

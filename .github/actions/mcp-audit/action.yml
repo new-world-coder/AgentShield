@@ -1,0 +1,69 @@
+name: 'AgentShield MCP Audit'
+description: 'Fail CI when MCP tool inventory fails pin/scan/allowlist policy gates'
+inputs:
+  tools-file:
+    description: 'Path to tools JSON (list or {tools:[]})'
+    required: true
+  policy-file:
+    description: 'Path to policy YAML/JSON'
+    required: false
+    default: ''
+  pins-file:
+    description: 'Optional pin registry baseline JSON'
+    required: false
+    default: ''
+  fail-on-severity:
+    description: 'Fail when report severity is at least this level (low|medium|high|critical)'
+    required: false
+    default: 'high'
+  sarif-output:
+    description: 'Optional SARIF output path'
+    required: false
+    default: 'mcp-audit.sarif'
+  working-directory:
+    description: 'Repo subdirectory containing the python/ package (usually repo root)'
+    required: false
+    default: '.'
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install AgentShield Python SDK
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e "./python"
+
+    - name: Run MCP security audit
+      id: audit
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        ARGS=(mcp audit --tools "${{ inputs.tools-file }}" --fail-on-severity "${{ inputs.fail-on-severity }}" --out mcp-audit-report.json)
+        if [ -n "${{ inputs.policy-file }}" ]; then
+          ARGS+=(--policy "${{ inputs.policy-file }}")
+        fi
+        if [ -n "${{ inputs.pins-file }}" ]; then
+          ARGS+=(--pins "${{ inputs.pins-file }}")
+        else
+          ARGS+=(--ignore-unpinned)
+        fi
+        if [ -n "${{ inputs.sarif-output }}" ]; then
+          ARGS+=(--sarif "${{ inputs.sarif-output }}")
+        fi
+        agentshield "${ARGS[@]}"
+        echo "report=mcp-audit-report.json" >> "$GITHUB_OUTPUT"
+
+    - name: Upload SARIF (optional)
+      if: ${{ inputs.sarif-output != '' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: agentshield-mcp-sarif
+        path: ${{ inputs.working-directory }}/${{ inputs.sarif-output }}
+        if-no-files-found: ignore

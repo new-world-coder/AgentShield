@@ -1,4 +1,4 @@
-"""AgentShield CLI — MCP pin/scan and Assure utilities."""
+"""AgentShield CLI — MCP firewall, audit, registry, BOM, Assure utilities."""
 
 from __future__ import annotations
 
@@ -12,9 +12,18 @@ from agentshield import __version__
 from agentshield.assure.oracles import evaluate_trace
 from agentshield.assure.packs import expand_packs, load_pack_file
 from agentshield.assure.sarif import findings_to_sarif
-from agentshield.assure.scoring import Finding, findings_from_oracles, score_findings
+from agentshield.assure.scoring import findings_from_oracles, score_findings
+from agentshield.bom.agentbom import generate_agentbom, load_audit_report
+from agentshield.mcp.adapter import ServerConfig
+from agentshield.mcp.audit import (
+    audit_to_sarif,
+    fails_severity_threshold,
+    run_mcp_security_audit,
+)
 from agentshield.mcp.firewall import ToolAllowlist
 from agentshield.mcp.pin import pin_tool, verify_pin
+from agentshield.mcp.policy import load_policy
+from agentshield.mcp.registry import PinRegistry
 from agentshield.mcp.scan import scan_tools
 
 
@@ -60,6 +69,85 @@ def cmd_mcp_firewall(args: argparse.Namespace) -> int:
     result = gate.decide(args.tool_name)
     _write_json(args.out, result.to_dict())
     return 0 if result.decision.value == "allow" else 2
+
+
+def cmd_mcp_audit(args: argparse.Namespace) -> int:
+    config: Any
+    if args.server:
+        config = _read_json(args.server)
+    elif args.tools:
+        config = ServerConfig(id=args.server_id or "file", transport="file", path=args.tools)
+    else:
+        sys.stderr.write("mcp audit requires --tools or --server\n")
+        return 2
+
+    report = run_mcp_security_audit(
+        config,
+        policy=args.policy,
+        pins_path=args.pins,
+        verify_pins=not args.skip_pin_verify,
+        include_unpinned=not args.ignore_unpinned,
+        agent={"name": args.agent_name or "", "adapter": args.adapter or "", "model": args.model or ""},
+    )
+    payload = report.to_dict()
+    if args.sarif:
+        sarif = audit_to_sarif(report)
+        Path(args.sarif).write_text(json.dumps(sarif, indent=2) + "\n", encoding="utf-8")
+        payload["sarif_path"] = args.sarif
+    _write_json(args.out, payload)
+
+    if args.fail_on_severity:
+        if fails_severity_threshold(report, args.fail_on_severity):
+            return 2
+        return 0
+    return 0 if report.ok else 2
+
+
+def cmd_pin_registry_add(args: argparse.Namespace) -> int:
+    payload = _read_json(args.tools)
+    tools = payload if isinstance(payload, list) else payload.get("tools") or [payload]
+    reg = PinRegistry(args.pins)
+    records = reg.pin_all(tools, server_id=args.server_id)
+    _write_json(args.out, {"pins": [r.to_dict() for r in records], "path": str(reg.path)})
+    return 0
+
+
+def cmd_pin_registry_verify(args: argparse.Namespace) -> int:
+    payload = _read_json(args.tools)
+    tools = payload if isinstance(payload, list) else payload.get("tools") or [payload]
+    reg = PinRegistry(args.pins)
+    findings = reg.verify_tools(tools, server_id=args.server_id)
+    _write_json(
+        args.out,
+        {
+            "ok": len(findings) == 0,
+            "findings": [f.to_dict() for f in findings],
+            "path": str(reg.path),
+        },
+    )
+    return 0 if not findings else 2
+
+
+def cmd_pin_registry_list(args: argparse.Namespace) -> int:
+    reg = PinRegistry(args.pins)
+    pins = reg.list_pins(args.server_id)
+    _write_json(args.out, {"pins": [p.to_dict() for p in pins], "path": str(reg.path)})
+    return 0
+
+
+def cmd_bom_generate(args: argparse.Namespace) -> int:
+    report = load_audit_report(args.audit_report)
+    bom = generate_agentbom(
+        audit_report=report,
+        agent={
+            "name": args.agent_name or report.get("server_id") or "agent",
+            "adapter": args.adapter or "file",
+            "model": args.model or "",
+        },
+        policy=load_policy(args.policy) if args.policy else None,
+    )
+    _write_json(args.out, bom)
+    return 0
 
 
 def cmd_packs_expand(args: argparse.Namespace) -> int:
@@ -117,7 +205,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"agentshield {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    mcp = sub.add_parser("mcp", help="MCP firewall primitives")
+    mcp = sub.add_parser("mcp", help="MCP firewall / audit")
     mcp_sub = mcp.add_subparsers(dest="mcp_command", required=True)
 
     pin = mcp_sub.add_parser("pin", help="Pin or verify a tool schema hash")
@@ -140,6 +228,56 @@ def build_parser() -> argparse.ArgumentParser:
     fw.add_argument("--fail-open", action="store_true")
     fw.add_argument("--out", help="Output path (default stdout)")
     fw.set_defaults(func=cmd_mcp_firewall)
+
+    audit = mcp_sub.add_parser("audit", help="Run full MCP security audit pipeline")
+    audit.add_argument("--tools", help="Path to tools JSON file")
+    audit.add_argument("--server", help="Path to MCP server config JSON")
+    audit.add_argument("--server-id", default="default")
+    audit.add_argument("--policy", help="Path to policy YAML/JSON")
+    audit.add_argument("--pins", help="Path to pin registry JSON")
+    audit.add_argument("--skip-pin-verify", action="store_true")
+    audit.add_argument("--ignore-unpinned", action="store_true")
+    audit.add_argument("--fail-on-severity", help="Fail if severity >= threshold (e.g. high)")
+    audit.add_argument("--sarif", help="Write SARIF output to path")
+    audit.add_argument("--agent-name", default="")
+    audit.add_argument("--adapter", default="")
+    audit.add_argument("--model", default="")
+    audit.add_argument("--out", help="Output path (default stdout)")
+    audit.set_defaults(func=cmd_mcp_audit)
+
+    preg = mcp_sub.add_parser("pin-registry", help="Persistent pin registry")
+    preg_sub = preg.add_subparsers(dest="pin_registry_command", required=True)
+
+    preg_add = preg_sub.add_parser("add", help="Pin all tools into registry")
+    preg_add.add_argument("--tools", required=True)
+    preg_add.add_argument("--server-id", default="default")
+    preg_add.add_argument("--pins", help="Registry path")
+    preg_add.add_argument("--out")
+    preg_add.set_defaults(func=cmd_pin_registry_add)
+
+    preg_verify = preg_sub.add_parser("verify", help="Verify live tools against registry")
+    preg_verify.add_argument("--tools", required=True)
+    preg_verify.add_argument("--server-id", default="default")
+    preg_verify.add_argument("--pins", help="Registry path")
+    preg_verify.add_argument("--out")
+    preg_verify.set_defaults(func=cmd_pin_registry_verify)
+
+    preg_list = preg_sub.add_parser("list", help="List stored pins")
+    preg_list.add_argument("--server-id", default=None)
+    preg_list.add_argument("--pins", help="Registry path")
+    preg_list.add_argument("--out")
+    preg_list.set_defaults(func=cmd_pin_registry_list)
+
+    bom = sub.add_parser("bom", help="AgentBOM generation")
+    bom_sub = bom.add_subparsers(dest="bom_command", required=True)
+    bom_gen = bom_sub.add_parser("generate", help="Generate AgentBOM from audit report")
+    bom_gen.add_argument("--audit-report", required=True)
+    bom_gen.add_argument("--policy", help="Optional policy file for hash")
+    bom_gen.add_argument("--agent-name", default="")
+    bom_gen.add_argument("--adapter", default="")
+    bom_gen.add_argument("--model", default="")
+    bom_gen.add_argument("--out")
+    bom_gen.set_defaults(func=cmd_bom_generate)
 
     packs = sub.add_parser("packs", help="Mutational payload packs")
     packs_sub = packs.add_subparsers(dest="packs_command", required=True)

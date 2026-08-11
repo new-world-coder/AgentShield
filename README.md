@@ -31,13 +31,14 @@ NOTE-Cloning and reuse are allowed only by approved contributors under CLA.
 - **Authentication**: JWT-based with bcrypt
 - **Testing**: Jest for backend, React Testing Library for frontend
 - **Charts**: Recharts for data visualization
-- **Python SDK** (`python/agentshield`): MCP firewall pin/scan, action oracles, mutational packs, SARIF (Phase 0 / Phase 1 start)
+- **Python SDK** (`python/agentshield`): MCP firewall (pin/scan/audit/policy), AgentBOM, action oracles, mutational packs, SARIF (Phase 0 + Phase 1)
+- **MCP Security Gate**: Schema pins, rug-pull drift detection, poisoning scan, allowlist policy, GitHub Action CI gate — see [`docs/MCP_SECURITY.md`](docs/MCP_SECURITY.md)
 
 ## Strategy
 
 AgentShield is evolving into an **Open Agent Security Fabric** (Assure + Enforce + Govern). See [`docs/STRATEGY.md`](docs/STRATEGY.md) and the refreshed [`docs/threat-model.md`](docs/threat-model.md) (OWASP LLM + Agentic + MCP Top 10).
 
-**Priority:** MCP firewall first (Python-first runtime primitives), then adaptive Assure expansion.
+**Priority:** MCP firewall first (Python-first runtime primitives), then adaptive Assure expansion. Phase 1 MCP audit/API/CI is documented in [`docs/MCP_SECURITY.md`](docs/MCP_SECURITY.md).
 
 ## 🚀 Quick Start
 

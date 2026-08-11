@@ -47,21 +47,21 @@ A **pass** must mean the unsafe *action* did not happen — not merely that the 
 - SARIF export for CI  
 - This strategy document  
 
-### Phase 1 — MCP & Tool Firewall (start in this PR; complete later)
+### Phase 1 — MCP & Tool Firewall (**complete in Phase 1 PR**)
 
-**In this PR (primitives):**
+**Shipped:**
 
-- Schema pin / hash (name + description + input schema)  
-- Poisoning / typosquat / shadow-tool scan hooks  
-- Tool allowlist primitive  
+- Schema pin / hash (name + description + input schema) — PR #2  
+- Poisoning / typosquat / shadow-tool scan — PR #2  
+- Tool allowlist primitive — PR #2  
+- Full MCP adapter (file / stdio / HTTP) — `python/agentshield/mcp/adapter.py`  
+- Pin registry + rug-pull drift — `registry.py`  
+- Integrated audit pipeline + policy YAML — `audit.py`, `policy.py`  
+- AgentBOM v1 — `python/agentshield/bom/agentbom.py`  
+- CI composite action — `.github/actions/mcp-audit`  
+- Server API `/api/mcp/*`  
 
-**Follow-on PRs:**
-
-- Full MCP adapter  
-- Tool approval UX  
-- CI action  
-- AgentBOM  
-
+**Deferred (see `docs/PHASE1_GAPS.md`):** human approval UX, CycloneDX, live MCP SDK optional dependency.
 ### Phase 2 — Runtime SDK (`agentshield` Python package → bindings later)
 
 - IFC labels, quarantine models, policy DSL (YAML/CEL/Rego)  
@@ -103,16 +103,21 @@ A **pass** must mean the unsafe *action* did not happen — not merely that the 
 - No silent telemetry  
 - Prefer deterministic local gates so air-gapped environments keep working  
 
-## Package Layout (Phase 0 / 1 start)
+## Package Layout (Phase 0 / 1)
 
 ```text
 python/agentshield/
-  mcp/          # pin, scan, firewall allowlist
+  mcp/          # adapter, pin, scan, firewall, registry, policy, audit
+  bom/          # AgentBOM v1
   assure/       # oracles, packs, scoring, sarif
   packs/        # versioned mutational payload JSON
 docs/
-  STRATEGY.md   # this file
+  STRATEGY.md
   threat-model.md
+  MCP_SECURITY.md
+  PHASE1_HANDOFF.md
+  PHASE1_GAPS.md
+.github/actions/mcp-audit/
 ```
 
 ## Non-Goals for This PR
