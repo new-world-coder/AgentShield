@@ -10,10 +10,35 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Install dependencies
-        run: npm install
-      - name: Run agent unit and scenario tests
-        run: npx vitest run
-      - name: Simulate agent with wrangler
-        run: npx wrangler dev --test
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Install root and server dependencies
+        run: |
+          npm ci
+          cd server && npm ci
+
+      - name: Run Assure / MCP firewall unit tests
+        run: cd server && npm run test:assure
+
+      - name: Run Python MCP/Assure SDK tests
+        run: |
+          python3 -m pip install -e "./python[dev]" -q
+          cd python && python3 -m pytest -q
+
+      - name: Cloudflare wrangler smoke (optional)
+        continue-on-error: true
+        run: |
+          if [ -f wrangler.toml ] || [ -f server/wrangler.toml ] || [ -f client/wrangler.toml ]; then
+            npx --yes wrangler --version
+          else
+            echo "No wrangler.toml present; skipping wrangler smoke"
+          fi

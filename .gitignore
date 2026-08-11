@@ -8,7 +8,6 @@ client/dist/
 server/dist
 client/build
 server/build
-client/public
 server/public
 client/logs
 server/logs
