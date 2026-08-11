@@ -1,0 +1,6 @@
+fail_closed: true
+allowed_tools:
+  - search_docs
+approval_required:
+  - write_file
+blocked_patterns: []

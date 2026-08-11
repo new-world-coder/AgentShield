@@ -1,0 +1,30 @@
+name: MCP Audit Example
+
+# Manual example only — does not run on push/PR so poisoned fixtures do not fail default CI.
+on:
+  workflow_dispatch:
+
+jobs:
+  mcp-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AgentShield MCP audit
+        uses: ./.github/actions/mcp-audit
+        with:
+          tools-file: python/examples/tools_poisoned.json
+          policy-file: python/examples/policy.yaml
+          fail-on-severity: high
+          sarif-output: mcp-audit.sarif
+          working-directory: .
+        continue-on-error: true
+
+      - name: Show report
+        if: always()
+        run: |
+          if [ -f mcp-audit-report.json ]; then
+            python3 -m json.tool mcp-audit-report.json | head -80
+          else
+            echo "No report generated"
+          fi

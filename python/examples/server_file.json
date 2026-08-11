@@ -1,0 +1,5 @@
+{
+  "id": "local-file",
+  "transport": "file",
+  "path": "examples/tools_poisoned.json"
+}
