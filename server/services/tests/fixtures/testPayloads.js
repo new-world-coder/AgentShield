@@ -1,6 +1,8 @@
 module.exports = {
   'prompt-injection': {
     testType: 'prompt-injection',
+    taxonomy: ['LLM01', 'ASI01'],
+    severity_impact: 'goal_hijack',
     messages: [
       {
         role: 'user',

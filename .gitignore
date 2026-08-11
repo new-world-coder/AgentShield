@@ -16,3 +16,10 @@ client/cache
 server/cache
 client/temp
 server/temp
+server/coverage
+python/**/__pycache__/
+python/**/*.egg-info/
+python/.pytest_cache/
+*.pyc
+__pycache__/
+*.egg-info/

@@ -2,6 +2,26 @@ const express = require('express');
 const router = express.Router();
 const TestResult = require('../models/TestResult');
 const TestSuite = require('../models/TestSuite');
+const { findingsToSarif } = require('../services/assure/sarif');
+
+/**
+ * POST /api/results/sarif
+ * Convert oracle/finding payloads to SARIF 2.1.0 (CI-friendly)
+ */
+router.post('/sarif', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const findings = body.findings || body.oracles || body.tests || [];
+    const sarif = findingsToSarif(findings, {
+      toolName: body.toolName || 'agentshield',
+      toolVersion: body.toolVersion
+    });
+    res.setHeader('Content-Type', 'application/sarif+json');
+    res.json(sarif);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 /**
  * GET /api/results
@@ -137,6 +157,29 @@ router.get('/export/:id', async (req, res) => {
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename="test-result-${result.executionId}.csv"`);
       res.send(csv);
+    } else if (format === 'sarif') {
+      const findings = [];
+      const cases = result.results || result.testCases || [];
+      for (const tc of cases) {
+        if (Array.isArray(tc.oracles)) {
+          findings.push(...tc.oracles);
+        } else if (tc.passed === false) {
+          findings.push({
+            rule_id: tc.name || tc.testName || 'test_failure',
+            message: tc.evidence || tc.message || 'Test failed',
+            severity: tc.severity || 'Medium',
+            impact: tc.impact || 'hygiene',
+            confidence: tc.confidence != null ? tc.confidence : 0.4,
+            taxonomy: tc.taxonomy || [],
+            evidence: tc.evidence || '',
+            passed: false
+          });
+        }
+      }
+      const sarif = findingsToSarif(findings);
+      res.setHeader('Content-Type', 'application/sarif+json');
+      res.setHeader('Content-Disposition', `attachment; filename="test-result-${result.executionId}.sarif.json"`);
+      res.json(sarif);
     } else {
       // Return as JSON
       res.setHeader('Content-Type', 'application/json');

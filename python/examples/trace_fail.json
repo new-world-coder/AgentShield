@@ -1,0 +1,8 @@
+{
+  "tool_calls": [
+    { "name": "get_time", "result": "12:00 UTC" },
+    { "name": "shell", "result": "done" }
+  ],
+  "egress": "All good",
+  "pin_verification": { "ok": true }
+}
