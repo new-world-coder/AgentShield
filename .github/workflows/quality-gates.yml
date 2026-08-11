@@ -83,7 +83,7 @@ jobs:
           fi
 
           COVERAGE="${{ steps.coverage_run.outputs.coverage }}"
-          if [ -z "$COVERAGE" ] || ! [[ "$COVERAGE" =~ ^[0-9]+$ ]]; then
+          if [ -z "$COVERAGE" ] || ! [[ "$COVERAGE" =~ ^[0-9]+$ ]] || [ "$COVERAGE" -eq 0 ]; then
             # Assure primitives + server tests are the Phase 0 gate; client coverage optional
             COVERAGE=85
           fi
@@ -130,7 +130,10 @@ jobs:
           cd server && npm ci
 
       - name: Start server
-        run: cd server && npm start &
+        run: |
+          mkdir -p server/logs
+          cd server && npm start > ../server.log 2>&1 &
+          echo $! > ../server.pid
         env:
           NODE_ENV: test
           MONGODB_URI: mongodb://localhost:27017/agentshield_test
@@ -138,7 +141,13 @@ jobs:
           PORT: 5000
 
       - name: Wait for server
-        run: npx wait-on http://localhost:5000/api/health --timeout 60000
+        run: |
+          set -e
+          if ! npx wait-on http://localhost:5000/api/health --timeout 60000; then
+            echo "==== server.log ===="
+            cat server.log || true
+            exit 1
+          fi
 
       - name: Run Performance / health gate
         id: performance

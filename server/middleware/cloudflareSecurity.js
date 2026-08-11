@@ -76,7 +76,7 @@ const aiAgentInputValidation = (req, res, next) => {
       /role\s+confusion/i,
       
       // SQL injection patterns
-      /('|(\\')|(;)|(\\;)|(--)|(\\/\\*)|(\\*\\/))/i,
+      /(?:'|--|\/\*|\*\/|;)/i,
       
       // Command injection patterns
       /[;&|`$()]/,
