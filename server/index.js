@@ -14,7 +14,7 @@ const cloudflareRoutes = require('./routes/cloudflare');
 const agentAdapterRoutes = require('./routes/agentAdapters');
 
 // Import middleware
-const authMiddleware = require('./middleware/auth');
+const { authMiddleware } = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const {
   cloudflareAIGatewayAuth,
