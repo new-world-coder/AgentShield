@@ -31,14 +31,31 @@ NOTE-Cloning and reuse are allowed only by approved contributors under CLA.
 - **Authentication**: JWT-based with bcrypt
 - **Testing**: Jest for backend, React Testing Library for frontend
 - **Charts**: Recharts for data visualization
-- **Python SDK** (`python/agentshield`): MCP firewall (pin/scan/audit/policy), AgentBOM, action oracles, mutational packs, SARIF (Phase 0 + Phase 1)
+- **Python SDK** (`python/agentshield`): MCP firewall (pin/scan/audit/policy), AgentBOM, action oracles, mutational packs, SARIF, **runtime SDK (IFC + quarantine + audit chain)** (Phase 0–2)
 - **MCP Security Gate**: Schema pins, rug-pull drift detection, poisoning scan, allowlist policy, GitHub Action CI gate — see [`docs/MCP_SECURITY.md`](docs/MCP_SECURITY.md)
+- **Runtime SDK**: Information-flow labels, quarantine, fail-closed enforcement, hash-chained audit — see [`docs/RUNTIME.md`](docs/RUNTIME.md)
 
 ## Strategy
 
 AgentShield is evolving into an **Open Agent Security Fabric** (Assure + Enforce + Govern). See [`docs/STRATEGY.md`](docs/STRATEGY.md) and the refreshed [`docs/threat-model.md`](docs/threat-model.md) (OWASP LLM + Agentic + MCP Top 10).
 
-**Priority:** MCP firewall first (Python-first runtime primitives), then adaptive Assure expansion. Phase 1 MCP audit/API/CI is documented in [`docs/MCP_SECURITY.md`](docs/MCP_SECURITY.md).
+**Priority:** MCP firewall first (Python-first runtime primitives), then adaptive Assure expansion. Phase 1 MCP audit/API/CI is documented in [`docs/MCP_SECURITY.md`](docs/MCP_SECURITY.md). **Phase 2 runtime SDK** (IFC, quarantine, policy enforcement) is in [`docs/RUNTIME.md`](docs/RUNTIME.md).
+
+## 🤝 Contributing — good first issues
+
+New to AgentShield? Start with these **pinned starter issues** (tests, docs, small utilities — no architecture changes):
+
+| Issue | Title |
+|-------|-------|
+| [#4](https://github.com/new-world-coder/AgentShield/issues/4) | Add MCP poisoning & typosquat test fixtures |
+| [#5](https://github.com/new-world-coder/AgentShield/issues/5) | Document MCP stdio transport on Windows |
+| [#6](https://github.com/new-world-coder/AgentShield/issues/6) | Clean tools fixture + CI example (exit 0) |
+| [#7](https://github.com/new-world-coder/AgentShield/issues/7) | Pin-then-verify rug-pull tutorial |
+| [#8](https://github.com/new-world-coder/AgentShield/issues/8) | Add `npm run test:mcp` script alias |
+
+Full catalog: [`docs/GOOD_FIRST_ISSUES.md`](docs/GOOD_FIRST_ISSUES.md) · [GitHub Issues](https://github.com/new-world-coder/AgentShield/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+
+Comment on an issue before opening a PR. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup and test commands.
 
 ## 🚀 Quick Start
 

@@ -1,0 +1,36 @@
+mode: production
+fail_closed: true
+quarantine_untrusted: true
+
+tool_policy:
+  fail_closed: true
+  allowed_tools:
+    - search_docs
+    - read_file
+  approval_required:
+    - write_file
+  blocked_patterns:
+    - "^exec_"
+
+sensitive_tools:
+  - write_file
+  - delete_file
+  - send_email
+  - post_comment
+  - git_push
+
+ifc_rules:
+  - when:
+      integrity_in_scope: untrusted
+    deny_tools:
+      - write_file
+      - delete_file
+      - send_email
+      - git_push
+    reason: untrusted_content_blocks_sensitive_tools
+  - when:
+      confidentiality_in_scope: private
+    deny_tools:
+      - post_comment
+      - send_email
+    reason: private_content_blocks_egress

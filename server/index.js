@@ -13,6 +13,7 @@ const configRoutes = require('./routes/config');
 const cloudflareRoutes = require('./routes/cloudflare');
 const agentAdapterRoutes = require('./routes/agentAdapters');
 const mcpRoutes = require('./routes/mcp');
+const runtimeRoutes = require('./routes/runtime');
 
 // Import middleware
 const { authMiddleware } = require('./middleware/auth');
@@ -83,6 +84,7 @@ app.use('/api/config', cloudflareAIGatewayAuth, authMiddleware, configRoutes);
 app.use('/api/cloudflare', cloudflareAIGatewayAuth, authMiddleware, cloudflareRoutes);
 app.use('/api/agents', cloudflareAIGatewayAuth, authMiddleware, agentAdapterRoutes);
 app.use('/api/mcp', cloudflareAIGatewayAuth, authMiddleware, mcpRoutes);
+app.use('/api/runtime', cloudflareAIGatewayAuth, authMiddleware, runtimeRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

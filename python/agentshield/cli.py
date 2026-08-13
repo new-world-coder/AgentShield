@@ -24,7 +24,9 @@ from agentshield.mcp.firewall import ToolAllowlist
 from agentshield.mcp.pin import pin_tool, verify_pin
 from agentshield.mcp.policy import load_policy
 from agentshield.mcp.registry import PinRegistry
-from agentshield.mcp.scan import scan_tools
+from agentshield.runtime.audit_chain import AuditChain
+from agentshield.runtime.enforcer import RuntimeEnforcer
+from agentshield.runtime.policy_dsl import compile_policy_ast, load_runtime_policy
 
 
 def _read_json(path: str) -> Any:
@@ -197,7 +199,44 @@ def cmd_sarif_export(args: argparse.Namespace) -> int:
     return 0
 
 
-def build_parser() -> argparse.ArgumentParser:
+def cmd_runtime_check(args: argparse.Namespace) -> int:
+    trace = _read_json(args.trace)
+    policy = load_runtime_policy(args.policy) if args.policy else load_runtime_policy(None)
+    audit = None
+    if args.audit_log:
+        audit = AuditChain.load(args.audit_log)
+        audit.path = Path(args.audit_log)
+    enforcer = RuntimeEnforcer(policy=policy, audit=audit)
+    results = enforcer.evaluate_trace(trace)
+    audit_status = None
+    if args.audit_log and audit:
+        ok, reason = audit.verify()
+        audit_status = {"ok": ok, "reason": reason}
+    payload = {
+        "ok": all(r.decision.value in ("allow", "warn") for r in results),
+        "results": [r.to_dict() for r in results],
+        "labels_in_scope": enforcer.context.labels_in_scope.to_dict(),
+    }
+    if audit_status:
+        payload["audit_chain"] = audit_status
+    _write_json(args.out, payload)
+    if any(r.decision.value in ("deny", "require_approval") for r in results):
+        return 2
+    return 0
+
+
+def cmd_runtime_audit_verify(args: argparse.Namespace) -> int:
+    chain = AuditChain.load(args.log)
+    ok, reason = chain.verify()
+    _write_json(args.out, {"ok": ok, "reason": reason, "entries": len(list(chain.entries()))})
+    return 0 if ok else 2
+
+
+def cmd_runtime_policy_ast(args: argparse.Namespace) -> int:
+    policy = load_runtime_policy(args.policy)
+    ast = compile_policy_ast(policy)
+    _write_json(args.out, ast)
+    return 0
     parser = argparse.ArgumentParser(
         prog="agentshield",
         description="AgentShield Python SDK CLI (MCP firewall + Assure)",
@@ -305,6 +344,26 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--findings", required=True)
     export.add_argument("--out", help="Output path (default stdout)")
     export.set_defaults(func=cmd_sarif_export)
+
+    runtime = sub.add_parser("runtime", help="Runtime SDK — IFC enforcement + audit chain")
+    runtime_sub = runtime.add_subparsers(dest="runtime_command", required=True)
+
+    rt_check = runtime_sub.add_parser("check", help="Replay trace against runtime policy")
+    rt_check.add_argument("--trace", required=True, help="Execution trace JSON")
+    rt_check.add_argument("--policy", help="Runtime policy YAML/JSON")
+    rt_check.add_argument("--audit-log", help="Append decisions to hash-chained JSONL log")
+    rt_check.add_argument("--out", help="Output path (default stdout)")
+    rt_check.set_defaults(func=cmd_runtime_check)
+
+    rt_verify = runtime_sub.add_parser("audit-verify", help="Verify tamper-evident audit log")
+    rt_verify.add_argument("--log", required=True, help="Audit JSONL path")
+    rt_verify.add_argument("--out", help="Output path (default stdout)")
+    rt_verify.set_defaults(func=cmd_runtime_audit_verify)
+
+    rt_ast = runtime_sub.add_parser("policy-ast", help="Compile runtime policy to AST")
+    rt_ast.add_argument("--policy", required=True)
+    rt_ast.add_argument("--out", help="Output path (default stdout)")
+    rt_ast.set_defaults(func=cmd_runtime_policy_ast)
 
     return parser
 

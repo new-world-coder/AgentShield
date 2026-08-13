@@ -381,3 +381,40 @@ Same inputs as audit; returns SARIF 2.1.0 only.
 Build or return AgentBOM from an audit report body.
 
 See also: [`docs/MCP_SECURITY.md`](MCP_SECURITY.md).
+
+## Runtime SDK API (Phase 2)
+
+### POST /api/runtime/check
+
+Replay an execution trace against runtime policy (IFC + tool allowlist).
+
+```json
+{
+  "trace": {
+    "steps": [
+      { "type": "content", "source": "rag", "labels": { "integrity": "untrusted" }, "content": "..." },
+      { "type": "tool_call", "call": { "name": "write_file", "arguments": {} } }
+    ]
+  },
+  "policy": {
+    "mode": "production",
+    "tool_policy": { "allowed_tools": ["search_docs"], "fail_closed": true },
+    "ifc_rules": [
+      { "when": { "integrity_in_scope": "untrusted" }, "deny_tools": ["write_file"] }
+    ],
+    "sensitive_tools": ["write_file"]
+  }
+}
+```
+
+**Response:** `{ ok, results[], labels_in_scope }` — `ok` is false when any result is `deny` or `require_approval`.
+
+### POST /api/runtime/audit/verify
+
+Verify a hash-chained audit log payload.
+
+```json
+{ "entries": [ { "seq": 1, "timestamp": "...", "event_type": "tool_check", "detail": {}, "prev_hash": "...", "entry_hash": "..." } ] }
+```
+
+See also: [`docs/RUNTIME.md`](RUNTIME.md).

@@ -2,14 +2,15 @@
 
 Python-first runtime and Assure primitives for AgentShield.
 
-## Scope (v0.1 — Phase 0 + Phase 1)
+## Scope (v0.2 — Phase 0 + Phase 1 + Phase 2)
 
-- **MCP firewall:** schema pin/hash, poisoning scan, tool allowlist, **adapter**, **pin registry**, **policy YAML**, **integrated audit**
+- **MCP firewall:** schema pin/hash, poisoning scan, tool allowlist, adapter, pin registry, policy YAML, integrated audit
+- **Runtime SDK:** IFC labels, quarantine, runtime policy DSL, enforcer, audit hash chain
 - **AgentBOM:** inventory of agent + MCP tools/decisions
 - **Assure:** action oracles, mutational payload packs, impact scoring, SARIF export
 - **CI:** composite GitHub Action `.github/actions/mcp-audit`
 
-See `docs/STRATEGY.md`, `docs/MCP_SECURITY.md`, and `docs/threat-model.md` in the repo root.
+See `docs/STRATEGY.md`, `docs/MCP_SECURITY.md`, `docs/RUNTIME.md`, and `docs/threat-model.md`.
 
 ## Install
 
@@ -51,6 +52,15 @@ agentshield oracle evaluate --trace examples/trace_fail.json
 
 # Export findings to SARIF
 agentshield sarif export --findings findings.json --out results.sarif
+
+# Runtime SDK — replay trace with IFC + policy
+agentshield runtime check \
+  --trace examples/runtime_trace.json \
+  --policy examples/runtime_policy.yaml \
+  --audit-log /tmp/runtime-audit.jsonl
+
+agentshield runtime audit-verify --log /tmp/runtime-audit.jsonl
+agentshield runtime policy-ast --policy examples/runtime_policy.yaml
 ```
 
 ## Design notes

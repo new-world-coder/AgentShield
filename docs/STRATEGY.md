@@ -62,11 +62,26 @@ A **pass** must mean the unsafe *action* did not happen — not merely that the 
 - Server API `/api/mcp/*`  
 
 **Deferred (see `docs/PHASE1_GAPS.md`):** human approval UX, CycloneDX, live MCP SDK optional dependency.
-### Phase 2 — Runtime SDK (`agentshield` Python package → bindings later)
+### Phase 2 — Runtime SDK (**complete in Phase 2 PR**)
 
-- IFC labels, quarantine models, policy DSL (YAML/CEL/Rego)  
-- Fail-closed in production; warn+record in dev  
-- Sub-20ms policy path target  
+**Shipped:**
+
+- IFC labels (integrity + confidentiality) with merge rules  
+- Quarantine store for untrusted content  
+- Runtime policy DSL (YAML) + AST compile stub  
+- `RuntimeEnforcer` / `AgentShieldRuntime` middleware  
+- Production fail-closed vs development warn modes  
+- Hash-chained audit log  
+- CLI `runtime check|audit-verify|policy-ast`  
+- Node API `/api/runtime/*`  
+
+**Deferred (see `docs/PHASE2_GAPS.md`):** framework bindings, CEL/Rego compiler, human approval UX, perf gates.
+
+### Phase 2.5 — Framework bindings (next)
+
+- LangChain / MAF middleware hooks  
+- Optional quarantine LLM processor  
+- CEL subset for `ifc_rules.when`  
 
 ### Phase 3 — Adaptive red team 2.0
 
